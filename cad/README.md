@@ -2,6 +2,7 @@
 
 Printable parts for the case: a pyramid base and a head on a friction hinge, in the spirit
 of the JVC 3100R Video Capsule. Exported from Fusion; each file sits on the bed (z = 0).
+The same files, with photos, are [on Printables](https://www.printables.com/model/1862118-jayveetv-retro-tv-case-for-the-waveshare-esp32-c6).
 
 | file | colour | print | notes |
 |---|---|---|---|

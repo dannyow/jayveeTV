@@ -21,7 +21,7 @@ First release: the test card and Pong.
   accelerometer (for the knock), a real-time clock and three keys.
 - A USB-C cable.
 - A phone, for the remote.
-- Optionally, the printed case from `cad/` and a pair of USB-C power pigtails (a male plug
+- Optionally, the printed case (`cad/`, also [on Printables](https://www.printables.com/model/1862118-jayveetv-retro-tv-case-for-the-waveshare-esp32-c6)) and a pair of USB-C power pigtails (a male plug
   for the module, a female socket for the base); see [`cad/README.md`](cad/README.md). The
   pigtails carry power only, so flash the module before you build it into the case. The
   firmware runs on the bare module too.
