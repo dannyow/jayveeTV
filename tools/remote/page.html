@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>JayVeeTV</title>
+<style>
+/* ---- Capsule: white case, black keys, one orange accent for what acts ---- */
+:root{
+ --r:14px;
+ --bg:#dfe7ea;--case:#f7f7f4;--case2:#e9e9e4;--ink:#111;--mut:#7a7a74;
+ --key:#101010;--keyInk:#f4f4f0;--keyEdge:#000;--acc:#ff6a13;--acc2:#1e8fd6;
+ --scr:#0b0b0b;--scrInk:#f4f4f0;--err:#c0392b;
+ --font:"Avenir Next","Helvetica Neue",-apple-system,sans-serif;--mono:"Menlo",monospace;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%}
+body{height:100dvh}   /* iOS Safari: 100% can be taller than what is visible with the toolbars; dvh is the visible height */
+body{background:linear-gradient(180deg,var(--case),var(--case2));color:var(--ink);font-family:var(--font);
+ overflow:hidden;display:flex;flex-direction:column;touch-action:none;
+ padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + 14px)}
+
+/* header strip: connection led, brand, phones online, your player slot */
+.hd{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex:none}
+.brand{font:800 12px var(--font);letter-spacing:.18em;color:var(--mut);text-transform:uppercase}
+.led{width:8px;height:8px;border-radius:50%;background:#c33;flex:none}
+.led.on{background:#3c3;box-shadow:0 0 8px #3c3}
+.cs{font:600 11px var(--font);color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.sp{flex:1}
+.cn{font:600 11px var(--font);color:var(--mut)}
+.pl{font:800 18px var(--font);color:var(--acc)}
+
+/* now playing: tap to browse channels */
+.win{flex:none;background:var(--scr);color:var(--scrInk);border-radius:10px;padding:10px 12px;
+ font:600 13px var(--mono);box-shadow:inset 0 2px 6px rgba(0,0,0,.6);margin-bottom:10px}
+.win b{color:var(--acc2)}
+.win .hint{opacity:.6}
+#wtitle{text-transform:uppercase}
+
+/* control row: power / mute / tune / volume — always present, same on every channel */
+.row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex:none}
+.k{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;min-height:52px;
+ border-radius:var(--r);background:var(--key);color:var(--keyInk);font:700 13px var(--font);
+ letter-spacing:.06em;text-transform:uppercase;border:none;box-shadow:0 4px 0 var(--keyEdge),0 6px 10px rgba(0,0,0,.25);
+ user-select:none;touch-action:manipulation;transition:transform .08s ease,box-shadow .08s ease}
+.k:active,.k.dn{transform:translateY(3px);box-shadow:0 1px 0 var(--keyEdge)}
+.k.acc{background:var(--acc);color:#fff}
+.k.sm{min-height:44px;font-size:11px}
+.k.rnd{border-radius:50%;flex:0 0 64px;width:64px;min-height:64px}
+.vol{flex:2;display:flex;align-items:center;gap:8px;font:700 11px var(--font);color:var(--mut);min-width:0}
+.vol input{flex:1;min-width:0;width:100%;accent-color:var(--acc);touch-action:pan-x}   /* a range input has an intrinsic min width: without min-width:0 it overflows a 390 px phone */
+
+/* the zone below the control row: either the channel panel or the channel list */
+.zone{position:relative;flex:1;min-height:0}
+/* The zone's scrolled boxes reach a little past it on every side and pad it back: a scroller clips
+   whatever sticks out of it, and the keys' shadows (4 px edge + 10 px blur) and the selected
+   channel's frame stick out. Without this they are cut off on a phone. */
+.panel,.listwrap{position:absolute;inset:-6px -10px -2px -10px;padding:6px 10px 16px;display:none;flex-direction:column;min-height:0}
+.panel.on,.listwrap.on{display:flex}
+.panel{overflow-y:auto;touch-action:pan-y}
+
+/* channel list */
+.listhd{display:flex;align-items:center;margin-bottom:8px;flex:none}
+.listhd h2{font:800 11px var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
+.ch{display:flex;flex-direction:column;gap:8px;overflow-y:auto;touch-action:pan-y;flex:1;min-height:0;margin:-4px;padding:4px 4px 12px}
+.ci{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r);background:rgba(0,0,0,.08);touch-action:manipulation}
+.ci.on{box-shadow:inset 0 0 0 3px var(--acc)}   /* drawn inside: an outline outside is clipped by the scrolling list */
+.num{font:800 24px var(--mono);width:36px;text-align:center;color:var(--acc);flex:none}
+.ct{min-width:0}
+.ct b{display:block;font-size:15px}
+.ct span{display:block;font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf{flex:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.12)}
+.wf h2{font:800 11px var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+
+/* empty / loading panel states */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;color:var(--mut);padding:20px}
+.empty b{color:var(--ink);font-size:15px}
+.empty span{font-size:12px;max-width:260px}
+
+/* panel blocks */
+.blk{flex:none;margin-bottom:12px}
+.blk:last-child{margin-bottom:0}
+.blk.grow{flex:1;min-height:0;display:flex;flex-direction:column}
+h2.lbl{font:800 10px var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:0 0 8px}
+
+/* slider (Pong's paddle): a shorter travel, centred in the thumb zone, multi-touch safe */
+.sliderzone{flex:1;min-height:120px;display:flex;align-items:center;justify-content:center;touch-action:none}
+.track{position:relative;width:100%;height:58%;max-height:280px;border-radius:var(--r);background:var(--scr);
+ box-shadow:inset 0 2px 8px rgba(0,0,0,.6);overflow:hidden}
+.track .pad{position:absolute;left:14%;right:14%;height:18px;margin-top:-9px;top:50%;border-radius:4px;background:var(--acc2);box-shadow:0 0 14px var(--acc2)}
+.track .tlbl{position:absolute;left:0;right:0;text-align:center;font:700 10px var(--mono);color:var(--scrInk);opacity:.5}
+/* horizontal slider: a low wide track, the paddle a vertical bar moving left/right */
+.track.h{height:96px;max-height:none}
+.track.h .pad{top:16%;bottom:16%;left:50%;right:auto;width:18px;height:auto;margin:0 0 0 -9px}
+.track.h .tlbl{top:50%;margin-top:-6px;left:auto;right:auto}
+
+/* buttons block */
+.brow{display:flex;gap:8px;flex-wrap:wrap}
+
+/* dpad */
+.split{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px}
+.dpad .k{min-height:0}
+.ab{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cap{font:700 10px var(--font);color:var(--mut);text-align:center;letter-spacing:.08em;text-transform:uppercase}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex:none}
+.tabs .k{min-height:36px;font-size:11px}
+.tabs .k.sel{background:var(--acc);color:#fff}
+.tabgroup{display:none;flex-direction:column;min-height:0;flex:1}
+.tabgroup.sel{display:flex}
+
+/* not-yet-supported block placeholder */
+.stub{padding:14px;border-radius:var(--r);background:rgba(0,0,0,.06);color:var(--mut);font-size:12px;line-height:1.5;text-align:center}
+
+/* ---- AP Wi-Fi setup screen ---- */
+.su{position:fixed;inset:0;display:none;flex-direction:column;gap:14px;padding:calc(env(safe-area-inset-top) + 24px) calc(env(safe-area-inset-right) + 20px) calc(env(safe-area-inset-bottom) + 20px) calc(env(safe-area-inset-left) + 20px);
+ overflow-y:auto;touch-action:pan-y;background:linear-gradient(180deg,var(--case),var(--case2))}
+html.ap .su{display:flex}
+html.ap .hd,html.ap .win,html.ap .row,html.ap .zone{display:none}
+.su h1{color:var(--acc);font:800 24px var(--font);letter-spacing:.08em}
+.su p{color:var(--mut);line-height:1.4;font-size:14px}
+.su label{display:flex;flex-direction:column;gap:6px;font:700 11px var(--font);color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.su select,.su input{font:16px var(--font);padding:12px;border-radius:10px;border:1px solid #d3d3cd;background:#fff;color:var(--ink);
+ -webkit-user-select:text;user-select:text;touch-action:auto}
+.su .ck{flex-direction:row;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;gap:8px}
+.su>button{padding:16px;flex:none}
+.su button:disabled{opacity:.5}
+/* the status sits under the title: lower down, the phone's keyboard covers it */
+#wm{font-size:15px;line-height:1.4;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.06);color:var(--ink)}
+#wm:empty{display:none}
+#wm.er{color:var(--err);font-weight:600;background:rgba(192,57,43,.08)}
+#wm a{color:var(--acc);font-weight:700;word-break:break-all}
+#wr{color:var(--mut);font-size:13px;text-align:center}
+</style></head>
+<body>
+<div class="hd">
+ <span class="led" id="led"></span>
+ <span class="brand">JAYVEETV</span>
+ <span class="cs" id="cs">connecting</span>
+ <span class="sp"></span>
+ <span class="cn" id="cn"></span>
+ <span class="pl" id="pl">--</span>
+</div>
+<div class="win" id="win">CH <b id="wch">--</b> · <span id="wtitle">…</span> · <span class="hint">tap for channels</span></div>
+<div class="row">
+ <button class="k sm" id="bpw">power</button>
+ <button class="k sm" id="bmu">mute</button>
+ <button class="k sm acc" id="btu">tune</button>
+ <label class="vol">VOL<input type="range" id="vol" min="0" max="100" value="20"></label>
+</div>
+
+<div class="zone">
+ <div class="panel on" id="panel"><div class="empty"><b>Connecting…</b><span>Waiting for the set.</span></div></div>
+ <div class="listwrap" id="listwrap">
+  <div class="listhd"><h2>Channels</h2></div>
+  <div class="ch" id="ch"></div>
+  <div class="wf" id="wf" style="display:none"><h2>Wi-Fi</h2><button class="k sm" id="wfg">Forget this Wi-Fi</button></div>
+ </div>
+</div>
+
+<div class="su" id="su"><h1>JAYVEETV</h1><p id="wm"></p><p>Connect the TV to your Wi-Fi. The TV uses 2.4 GHz networks only.</p>
+<label>Network<select id="wl"><option value="">Looking for networks…</option></select></label>
+<label id="wol" style="display:none">Network name<input id="wo" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label>Password<input id="wp" type="password" enterkeyhint="go" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label class="ck"><input type="checkbox" id="wsh">Show password</label>
+<button class="k acc" id="wjb">Connect</button><a id="wr" href="#">Use as a remote without Wi-Fi</a></div>
+
+<script>
+function $(i){return document.getElementById(i)}
+var ws,ax=0,dirty=0,ptId=null,trackEl=null,padEl=null;
+var led=$('led'),cs=$('cs'),cn=$('cn'),pl=$('pl'),win=$('win'),wch=$('wch'),wtitle=$('wtitle');
+var zonePanel=$('panel'),listwrap=$('listwrap'),chBox=$('ch'),wf=$('wf');
+var chData=null, curStation=null, builtStation=null, netMode=null, view='panel', gotFull=false;
+
+function setView(v){view=v;zonePanel.classList.toggle('on',v=='panel');listwrap.classList.toggle('on',v=='list')}
+win.addEventListener('click',function(){setView(view=='list'?'panel':'list')});
+
+// ---- channel list (shell) --------------------------------------------------
+function fetchChannels(){
+ fetch('/channels.json').then(function(r){return r.json()}).then(function(d){
+  chData=d.channels;
+  if(curStation==null && typeof d.current=='number') curStation=d.current;
+  renderList(); renderNow(); renderPanel();
+ }).catch(function(){setTimeout(fetchChannels,2000)});
+}
+function renderList(){
+ if(!chData) return;
+ chBox.innerHTML='';
+ chData.forEach(function(c,i){
+  var row=document.createElement('div'); row.className='ci'+(i==curStation?' on':'');
+  var num=document.createElement('span'); num.className='num'; num.textContent=i+1;   // people count channels from 1; the protocol from 0
+  var ct=document.createElement('span'); ct.className='ct';
+  var b=document.createElement('b'); b.textContent=c.title;
+  var sp=document.createElement('span'); sp.textContent=c.blurb;
+  ct.appendChild(b); ct.appendChild(sp);
+  row.appendChild(num); row.appendChild(ct);
+  row.addEventListener('click',function(){send('t '+i)});
+  chBox.appendChild(row);
+ });
+}
+function renderNow(){
+ if(!chData || curStation==null){ wch.textContent='--'; wtitle.textContent='…'; return }
+ var c=chData[curStation];
+ wch.textContent=curStation+1;
+ wtitle.textContent=c?c.title:'…';
+}
+
+// ---- panel builder (docs/REMOTE.md block model) ----------------------------
+function normalizePanel(p){
+ if(p && p.tabs) return {blocks:[{tabs:p.tabs}]};      // REMOTE.md shows both a top-level `tabs` and `tabs` as a block
+ return p || {blocks:[]};
+}
+function keyBtn(key,label,cls){
+ var b=document.createElement('button'); b.className='k'+(cls?' '+cls:'')+(key=='START'?' acc':'');
+ b.textContent=label||key;
+ var dn=function(e){e.preventDefault();b.classList.add('dn');send('k '+key+' 1')};
+ var up=function(){if(b.classList.contains('dn')){b.classList.remove('dn');send('k '+key+' 0')}};
+ b.onpointerdown=dn;b.onpointerup=up;b.onpointercancel=up;b.onpointerleave=up;
+ b.oncontextmenu=function(e){e.preventDefault()};
+ return b;
+}
+function buildSlider(host,opt){
+ var h=opt&&opt.dir=='h';   // horizontal: -32768 = left .. 32767 = right (Breakout's paddle)
+ var blk=document.createElement('div'); blk.className='blk grow';
+ var zone=document.createElement('div'); zone.className='sliderzone';
+ var track=document.createElement('div'); track.className=h?'track h':'track';
+ var top=document.createElement('span'); top.className='tlbl'; top.style[h?'left':'top']='10px'; top.textContent=h?'left':'top';
+ var bot=document.createElement('span'); bot.className='tlbl'; bot.style[h?'right':'bottom']='10px'; bot.textContent=h?'right':'bottom';
+ var pad=document.createElement('div'); pad.className='pad';
+ track.appendChild(top); track.appendChild(pad); track.appendChild(bot);
+ zone.appendChild(track); blk.appendChild(zone); host.appendChild(blk);
+ trackEl=track; padEl=pad;
+ function setFrac(t){t=t<0?0:t>1?1:t; padEl.style[h?'left':'top']=(t*100)+'%'; ax=Math.round(-32768+t*65535); dirty=1}
+ function frac(t){var r=trackEl.getBoundingClientRect(); return h?(t.clientX-r.left)/r.width:(t.clientY-r.top)/r.height}
+ zone.addEventListener('touchstart',function(e){e.preventDefault(); if(ptId==null){var t=e.changedTouches[0]; ptId=t.identifier; setFrac(frac(t))}},{passive:false});
+ zone.addEventListener('touchmove',function(e){e.preventDefault(); for(var i=0;i<e.changedTouches.length;i++) if(e.changedTouches[i].identifier==ptId){setFrac(frac(e.changedTouches[i])); break}},{passive:false});
+ function end(e){for(var i=0;i<e.changedTouches.length;i++) if(e.changedTouches[i].identifier==ptId){ptId=null;dirty=0;send('a '+ax);break}}
+ zone.addEventListener('touchend',end,{passive:false});
+ zone.addEventListener('touchcancel',end,{passive:false});
+ setFrac(0.5);
+}
+function buildDpad(host,btns){
+ var blk=document.createElement('div'); blk.className='blk';
+ var split=document.createElement('div'); split.className='split';
+ var left=document.createElement('div');
+ var dpad=document.createElement('div'); dpad.className='dpad';
+ var cells=[null,'UP',null,'LEFT',null,'RIGHT',null,'DOWN',null];
+ var glyph={UP:'▲',LEFT:'◀',RIGHT:'▶',DOWN:'▼'};
+ cells.forEach(function(k){ if(!k){dpad.appendChild(document.createElement('i'));return} dpad.appendChild(keyBtn(k,glyph[k])) });
+ var cap=document.createElement('div'); cap.className='cap'; cap.textContent='move';
+ left.appendChild(dpad); left.appendChild(cap);
+ var right=document.createElement('div'); right.className='ab';
+ (btns||[]).forEach(function(b){
+  var k=keyBtn(b.key,b.label,'rnd'); right.appendChild(k);
+  var c=document.createElement('div'); c.className='cap'; c.textContent=b.label||b.key; right.appendChild(c);
+ });
+ split.appendChild(left); split.appendChild(right);
+ blk.appendChild(split); host.appendChild(blk);
+}
+function buildButtons(host,btns){
+ var blk=document.createElement('div'); blk.className='blk';
+ var row=document.createElement('div'); row.className='brow';
+ (btns||[]).forEach(function(b){ row.appendChild(keyBtn(b.key,b.label)) });
+ blk.appendChild(row); host.appendChild(blk);
+}
+function stub(host,text){
+ var blk=document.createElement('div'); blk.className='blk';
+ var s=document.createElement('div'); s.className='stub'; s.textContent=text;
+ blk.appendChild(s); host.appendChild(blk);
+}
+function buildTabs(host,tabs){
+ var blk=document.createElement('div'); blk.className='blk grow';
+ var bar=document.createElement('div'); bar.className='tabs';
+ var groups=[];
+ (tabs||[]).forEach(function(t,i){
+  var b=document.createElement('button'); b.className='k'+(i==0?' sel':''); b.textContent=t.label;
+  var g=document.createElement('div'); g.className='tabgroup'+(i==0?' sel':''); groups.push(g);
+  buildBlocks(g,t.blocks);
+  b.addEventListener('click',function(){
+   bar.querySelectorAll('.k').forEach(function(x){x.classList.toggle('sel',x==b)});
+   groups.forEach(function(x){x.classList.toggle('sel',x==g)});
+  });
+  bar.appendChild(b);
+ });
+ blk.appendChild(bar);
+ groups.forEach(function(g){blk.appendChild(g)});
+ host.appendChild(blk);
+}
+function buildBlocks(host,blocks){
+ (blocks||[]).forEach(function(b){
+  if(b.slider) buildSlider(host,b.slider);
+  else if(b.dpad) buildDpad(host,b.dpad.buttons);
+  else if(b.buttons) buildButtons(host,b.buttons);
+  else if(b.tabs) buildTabs(host,b.tabs);
+  else if(b.keyboard) stub(host,'Keyboard input is not supported by this page yet.');
+  else if(b.files) stub(host,'File picking is not supported by this page yet.');
+ });
+}
+function renderPanel(){
+ if(!chData || curStation==null) return;
+ if(builtStation===curStation) return;   // a reconnect resends `ch <same n>`; don't rebuild and recentre the slider mid-play
+ builtStation=curStation;
+ var c=chData[curStation];
+ zonePanel.innerHTML='';
+ var p=normalizePanel(c.panel);
+ if(!p.blocks || !p.blocks.length){
+  var e=document.createElement('div'); e.className='empty';
+  var b=document.createElement('b'); b.textContent='No controls here';
+  var s=document.createElement('span'); s.textContent='This channel takes nothing from your phone. Sit back.';
+  e.appendChild(b); e.appendChild(s); zonePanel.appendChild(e);
+  return;
+ }
+ ptId=null;
+ buildBlocks(zonePanel,p.blocks);
+}
+
+// ---- shell controls ---------------------------------------------------------
+function actionBtn(el,cmd){
+ var dn=function(e){e.preventDefault();el.classList.add('dn');send(cmd)};
+ var up=function(){el.classList.remove('dn')};
+ el.onpointerdown=dn;el.onpointerup=up;el.onpointercancel=up;el.onpointerleave=up;
+ el.oncontextmenu=function(e){e.preventDefault()};
+}
+actionBtn($('bpw'),'pw');
+actionBtn($('bmu'),'m');
+actionBtn($('btu'),'t +');
+// Throttle, not debounce: while the finger moves, send the current volume at most every
+// 60 ms (and always the last one) — a debounce sent nothing until the finger paused, so a
+// smooth slide was heard as a few steps.
+var vt=null,volSent=null,volTouched=0;
+function volFlush(){vt=null; var v=$('vol').value; if(v!==volSent){volSent=v; send('v '+v); vt=setTimeout(volFlush,60)}}
+$('vol').oninput=function(){volTouched=Date.now(); if(!vt) volFlush()};
+
+function send(s){if(ws&&ws.readyState==1)ws.send(s)}
+setInterval(function(){if(dirty){dirty=0;send('a '+ax)}},33);
+setInterval(function(){send('h')},5000);
+
+// ---- WebSocket ---------------------------------------------------------------
+function conn(){
+ cs.textContent='connecting'; led.className='led';
+ ws=new WebSocket('ws://'+location.host+'/ws');
+ ws.onopen=function(){
+  cs.textContent=''; led.className='led on'; gotFull=false;
+  fetchChannels();   // the set may have restarted with a different station list
+  send('tm '+Math.floor(Date.now()/1000)+' '+(-new Date().getTimezoneOffset()));
+ };
+ ws.onmessage=function(m){
+  var a=m.data.split(' ');
+  if(a[0]=='p'){ var n=+a[1]; pl.textContent=n<0?'FULL':'P'+(n+1) }
+  else if(a[0]=='s'){ cn.textContent=a[1]+' online' }
+  else if(a[0]=='ch'){ curStation=+a[1]; renderNow(); renderList(); renderPanel(); if(view=='list') setView('panel') }
+  else if(a[0]=='st'){
+   for(var i=1;i<a.length;i++){ var kv=a[i].split('=');
+    if(kv[0]=='net'){ netMode=kv[1]; wf.style.display=netMode=='home'?'':'none' }
+    else if(kv[0]=='mute'){ var mu=kv[1]=='1'; $('bmu').classList.toggle('acc',mu); $('bmu').textContent=mu?'muted':'mute' }
+    else if(kv[0]=='vol'){ if(Date.now()-volTouched>1500) $('vol').value=+kv[1] }   // don't yank the slider from under a finger
+   }
+  }
+  else if(a[0]=='full'){ cs.textContent='both slots taken'; gotFull=true }
+ };
+ ws.onclose=function(){
+  led.className='led';
+  if(cs.textContent=='') cs.textContent='lost';
+  setTimeout(conn, gotFull?5000:1500);
+ };
+}
+
+// ---- Wi-Fi setup (docs/NETWORK.md): scan 200 -> setup screen, 403 -> remote.
+// Network names are strangers' text: never through innerHTML. ----
+var wl=$('wl'),wo=$('wo'),wp=$('wp'),wm=$('wm'),wj=$('wjb');
+function msg(t,e,href){wm.textContent=t;wm.className=e?'er':'';
+ if(href){var a=document.createElement('a');a.href=href;a.textContent=href;wm.appendChild(document.createTextNode(' '));wm.appendChild(a)}
+ if(t){wp.blur();wo.blur();$('su').scrollTop=0;window.scrollTo(0,0)}}   // keyboard down, status in view
+function oth(){$('wol').style.display=wl.value?'none':''}
+wl.onchange=oth; wp.onkeydown=function(e){if(e.key=='Enter'){wp.blur();wj.click()}};
+$('wsh').onchange=function(){wp.type=this.checked?'text':'password'};
+$('wr').onclick=function(e){e.preventDefault();document.documentElement.classList.remove('ap')};
+function scan(n){
+ fetch('/api/wifi/scan').then(function(r){return r.ok?r.json():null}).then(function(d){
+  if(!d) return;
+  document.documentElement.classList.add('ap');
+  if(!(d.aps||[]).length && n<5){ setTimeout(function(){scan(n+1)},2000); return }
+  wl.textContent='';
+  d.aps.forEach(function(a){ wl.add(new Option(a.s+(a.secure?'':' (open)'),a.s)) });
+  wl.add(new Option('Other network…',''));
+  oth();
+ }).catch(function(){ if(n<5) setTimeout(function(){scan(n+1)},2000) });
+}
+scan(0);
+var WHY={'wrong password':'Wrong password. Try again.','not found':'The TV cannot see that network. Is it 2.4 GHz and in range?','timeout':'No answer from that network. Try again.','busy':'The TV is busy. Try again in a moment.'};
+wj.onclick=function(){
+ var s=wl.value||wo.value;
+ if(!s){ msg('Pick a network first.',1); return }
+ wj.disabled=true; msg('Connecting to '+s+'… this can take up to 20 seconds.');
+ fetch('/api/wifi',{method:'POST',body:JSON.stringify({s:s,p:wp.value})}).then(function(r){return r.json()}).then(function(d){
+  wj.disabled=false;
+  d.ok?msg('Connected! Put your phone back on '+s+' and open',0,d.address):msg(WHY[d.reason]||d.reason,1);
+ }).catch(function(){ wj.disabled=false; msg('Lost contact with the TV. If it shows a new QR code, it has joined: put your phone back on your Wi-Fi and scan it.') });
+};
+$('wfg').onclick=function(){ fetch('/api/wifi/forget',{method:'POST'}).then(function(){msg('')}) };
+
+fetchChannels();
+conn();
+</script></body></html>

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Refuse pushing to main: work goes through a pull request.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "${JVTV_ALLOW_MAIN:-0}" != "1" ]; then
+    echo "pre-push: refusing to push to main. Open a pull request (or JVTV_ALLOW_MAIN=1 for the bootstrap only)."
+    exit 1
+  fi
+done
+exit 0

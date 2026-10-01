@@ -1,0 +1,12 @@
+.env
+**/secrets.h
+.pio/
+.vscode/
+build/
+out/
+__pycache__/
+.DS_Store
+*.elf
+*.map
+/tools/hostrender/hostrender
+dist/
